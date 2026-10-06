@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Simulador de Questões Pro 4.0</title>
+
+<!-- Configurações PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="icon-192x192.png">
+
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- PDF.js -->
@@ -192,6 +198,7 @@ Voltar ao Menu
 <!-- Container de Toasts (Notificações) -->
 <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
+<!-- SCRIPTS ORIGINAIS DA APLICAÇÃO -->
 <script>
 var pdfDocumento = null;
 var pdfNomeArquivo = "";
@@ -203,7 +210,6 @@ var respostasSessao = [];
 var cronometroIntervalo = null;
 var segundosDecorridos = 0;
 
-// --- SISTEMA DE TOAST NOTIFICATIONS ---
 function mostrarToast(mensagem, tipo = 'erro') {
 const container = document.getElementById('toast-container');
 const toast = document.createElement('div');
@@ -221,7 +227,6 @@ setTimeout(() => toast.remove(), 300);
 }, 4000);
 }
 
-// --- SISTEMA DE AUTO-SAVE ---
 function salvarEstadoSessao() {
 const estado = {
 pdfNomeArquivo,
@@ -257,7 +262,7 @@ respostasSessao = estado.respostasSessao;
 segundosDecorridos = estado.segundosDecorridos;
 
 mudarTela('screen-quiz');
-iniciarCronometro(true); // true = não zera os segundos
+iniciarCronometro(true);
 renderizarQuestao();
 mostrarToast("Sessão recuperada com sucesso!", 'sucesso');
 }
@@ -266,7 +271,6 @@ mostrarToast("Erro ao tentar recuperar a sessão.");
 limparEstadoSessao();
 }
 }
-// -----------------------------
 
 function mudarTela(telaAtiva) {
 const telas = ['screen-upload', 'screen-pages', 'screen-config', 'screen-quiz', 'screen-report', 'screen-history'];
@@ -336,7 +340,6 @@ clearInterval(cronometroIntervalo);
 cronometroIntervalo = setInterval(() => {
 segundosDecorridos++;
 document.getElementById('quiz-timer').innerText = formatarTempo(segundosDecorridos);
-// Auto-save do tempo a cada 5 segundos
 if (segundosDecorridos % 5 === 0) salvarEstadoSessao();
 }, 1000);
 }
@@ -572,7 +575,6 @@ var btn = document.getElementById('btn-processar');
 btn.disabled = true;
 btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-// Ativar a barra de progresso
 var divProgresso = document.getElementById('progress-container');
 var barraProgresso = document.getElementById('progress-bar');
 var textoProgresso = document.getElementById('progress-text');
@@ -608,17 +610,15 @@ marcadoresImagens += \n[[IMAGEM_PDF_${currIndex}]]\n`;
 
 textoIntervalo += marcadoresImagens + textLines + "\n";
 
-// Atualizar visual da barra de progresso
 var paginasLidas = (p - range.inicio + 1);
 var perc = Math.round((paginasLidas / totalPaginas) * 100);
 barraProgresso.style.width = ${perc}%; textoProgresso.innerText =Trecho ${idx + 1}: ${perc}%`;
 
-await new Promise(r => setTimeout(r, 5)); // Pausa ligeira para atualizar a interface
+await new Promise(r => setTimeout(r, 5));
 }
 
 var textoLimpo = limparTextoCompleto(textoIntervalo);
 var posicoes = [];
-// Melhoria da Regex: Suporta "Questão 1", "Q1", "1)", "1:", "1 -"
 var regexNum = /(?:^|\n)\s*(?:Questão\s+|Q)?(\d{1,3})\s*[.-):]]\s+(?=[A-ZÀ-Ú])/gi;
 var m;
 
@@ -636,7 +636,6 @@ var proximo = (j + 1 < posicoes.length) ? posicoes[j + 1].indice : textoLimpo.le
 var blocoCompleto = textoLimpo.substring(atual.indice + atual.tamanho, proximo);
 if (!blocoCompleto || blocoCompleto.trim().length < 10) continue;
 
-// Melhoria da Regex: Suporta A), A., A-, A], A:
 var regexAlt = /(?:^|\n|\s{2,})\s*([A-Ea-e])\s*[.-)]:]\s+/g;
 var altsEncontradas = [];
 var mAlt;
@@ -698,7 +697,6 @@ qtdNesteTrecho++;
 
 metadadosTrechos.push({ intervalo: ``${range.inicio} a ${range.fim}, qtd: qtdNesteTrecho });
 
-// Limpar buffer de imagens do trecho atual
 imagensTemporarias = [];
 }
 
@@ -742,7 +740,6 @@ questoesSessao = listaTemp.slice(0, Math.min(qtd, listaTemp.length));
 indiceQuestao = 0;
 respostasSessao = [];
 
-// Grava o save point inicial
 salvarEstadoSessao();
 
 mudarTela('screen-quiz');
@@ -786,9 +783,7 @@ function pularQuestao() {
 var qAtual = questoesSessao.splice(indiceQuestao, 1)[0];
 questoesSessao.push(qAtual);
 
-// Atualizar o save state com a nova ordem após pular
 salvarEstadoSessao();
-
 renderizarQuestao();
 }
 
@@ -805,7 +800,6 @@ numeroPdf: q.numeroPdf,
 escolhida: resp
 });
 
-// Grava o progresso
 salvarEstadoSessao();
 
 var feedback = document.getElementById('feedback-container');
@@ -820,7 +814,7 @@ if (indiceQuestao < questoesSessao.length - 1) {
 btnAction.innerText = "Ir para Próxima Questão";
 btnAction.onclick = () => {
 indiceQuestao++;
-salvarEstadoSessao(); // Atualiza index
+salvarEstadoSessao();
 renderizarQuestao();
 };
 } else {
@@ -833,14 +827,12 @@ function finalizarSessao() {
 pararCronometro();
 var tempoGastoStr = formatarTempo(segundosDecorridos);
 
-// Limpar o save state, pois a sessão foi concluída com sucesso
 limparEstadoSessao();
 
 mudarTela('screen-report');
 document.getElementById('report-time-spent').innerText = Tempo gasto:${tempoGastoStr}`;
 
 var infoDiv = document.getElementById('report-metadata');
-// Como recuperações de sessão ignoram "metadadosTrechos", geramos um resumo simplificado.
 var trechosHTML = metadadosTrechos.length > 0 ?
 metadadosTrechos.map(t => <span class="bg-indigo-900/40 text-indigo-200 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-xs font-medium"&gt;Páginas ${t.intervalo}: <strong class="text-indigo-400">${t.qtd}&lt;/strong&gt; questões&lt;/span>).join('')
 : <span class="text-slate-400 text-xs"&gt;Sessão recuperada.&lt;/span>;
@@ -874,7 +866,6 @@ document.getElementById('report-total').innerText = totalRespostas;
 salvarNoHistorico(totalRespostas, tempoGastoStr);
 }
 
-// --- SISTEMA DE EXPORTAÇÃO DE GABARITO ---
 function exportarParaTXT() {
 if(respostasSessao.length === 0) return;
 
@@ -897,12 +888,11 @@ URL.revokeObjectURL(link.href);
 
 mostrarToast("Gabarito exportado com sucesso!", "sucesso");
 }
-// ------------------------------------------
 
 function resetarInterface() {
 pdfDocumento = null;
 pararCronometro();
-limparEstadoSessao(); // Força a remoção de sessões antigas
+limparEstadoSessao();
 document.getElementById('pdf-file').value = '';
 document.getElementById('debug-box').classList.add('hidden');
 document.getElementById('debug-logs').innerHTML = '';
@@ -911,6 +901,21 @@ mudarTela('screen-upload');
 }
 
 mostrarHistoricoGerado(JSON.parse(localStorage.getItem('simulados_historico_v3')));
+</script>
+
+<!-- Registo do Service Worker para o PWA -->
+<script>
+if ('serviceWorker' in navigator) {
+window.addEventListener('load', () => {
+navigator.serviceWorker.register('./sw.js')
+.then(registration => {
+console.log('Service Worker registado com sucesso:', registration.scope);
+})
+.catch(error => {
+console.log('Falha ao registar o Service Worker:', error);
+});
+});
+}
 </script>
 </body>
 </html>
