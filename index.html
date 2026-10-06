@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Questões Pro 4.0</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+<div class="w-full max-w-3xl bg-slate-800 rounded-xl shadow-2xl p-6 sm:p-8 border border-slate-700 relative overflow-hidden">
+
+<!-- HEADER -->
+<header class="text-center mb-8 relative">
+<h1 class="text-2xl sm:text-3xl font-extrabold text-indigo-400 mb-2">Simulador de Questões Pro</h1>
+<p class="text-sm text-slate-400">Leitura, Resolução e Registo de Respostas</p>
+<button id="btn-show-history" class="absolute top-0 right-0 text-xs bg-slate-700 hover:bg-indigo-600 text-white font-bold py-2 px-3 rounded-lg transition-all cursor-pointer">
+Ver Histórico
+</button>
+</header>
+
+<!-- TELA 1: UPLOAD -->
+<div id="screen-upload" class="space-y-6 text-center">
+
+<!-- Botão de Auto-Save (Sessão Recuperada) -->
+<div id="container-resume" class="hidden mb-6">
+<button id="btn-resume-session" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg animate-pulse flex items-center justify-center gap-2 cursor-pointer">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+Retomar Sessão em Andamento
+</button>
+</div>
+
+<div class="border-2 border-dashed border-slate-600 rounded-xl p-8 bg-slate-800/50 hover:bg-slate-800 transition-colors">
+<svg class="mx-auto h-12 w-12 text-indigo-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+</svg>
+<p class="text-slate-300 font-medium mb-4">Selecione o PDF com as Questões:</p>
+
+<input type="file" id="pdf-file" accept="application/pdf"
+class="block w-full text-sm text-slate-400 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer bg-slate-900 p-2 rounded-lg border border-slate-700">
+</div>
+
+<button id="btn-ler-pdf" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-indigo-900/50 cursor-pointer">
+Carregar Documento
+</button>
+
+<!-- Debug Log -->
+<div id="debug-box" class="hidden text-left bg-slate-950 border border-slate-700 p-4 rounded-lg text-xs font-mono text-indigo-300 space-y-1 max-h-40 overflow-y-auto">
+<div id="debug-logs"></div>
+</div>
+</div>
+
+<!-- TELA 1.5: SELEÇÃO DE TRECHOS -->
+<div id="screen-pages" class="hidden space-y-6 text-center">
+<div class="bg-indigo-900/20 p-6 rounded-xl border border-indigo-800/50 space-y-2">
+<p id="pdf-info" class="text-indigo-400 font-bold text-lg"></p>
+<p class="text-slate-300 text-sm">Adicione os intervalos de páginas que contêm as questões.</p>
+</div>
+<div id="ranges-container" class="space-y-4"></div>
+<button id="btn-add-range" class="w-full py-3 border-2 border-dashed border-indigo-500/50 text-indigo-400 font-bold rounded-xl hover:bg-indigo-900/30 hover:border-indigo-400 transition-all">
++ Adicionar outro trecho
+</button>
+
+<!-- Barra de Progresso da Extração -->
+<div id="progress-container" class="hidden w-full bg-slate-700 rounded-full h-4 mt-4 overflow-hidden relative border border-slate-600">
+<div id="progress-bar" class="bg-emerald-500 h-full rounded-full transition-all duration-200" style="width: 0%"></div>
+<p id="progress-text" class="absolute inset-0 text-[10px] font-bold text-center text-white leading-4 drop-shadow-md">0%</p>
+</div>
+
+<button id="btn-processar" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-emerald-900/50 cursor-pointer mt-2">
+Extrair Questões
+</button>
+</div>
+
+<!-- TELA 2: CONFIGURAÇÃO -->
+<div id="screen-config" class="hidden space-y-6 text-center">
+<div class="bg-emerald-900/20 p-6 rounded-xl border border-emerald-800/50 space-y-2">
+<p id="status-extraction" class="text-emerald-400 font-bold text-lg"></p>
+<p class="text-slate-300 text-sm">Modo de Apenas Registo Ativado</p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+<div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+<label class="block text-xs font-medium text-slate-300 mb-2 uppercase tracking-wider">Quantidade:</label>
+<input type="number" id="num-questions" min="1" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-center text-xl font-bold text-indigo-300 focus:outline-none focus:border-indigo-500">
+</div>
+<div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+<label class="block text-xs font-medium text-slate-300 mb-2 uppercase tracking-wider">Ordem:</label>
+<select id="select-ordem" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+<option value="sequencial">Sequencial</option>
+<option value="aleatorio">Aleatória</option>
+</select>
+</div>
+<div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+<label class="block text-xs font-medium text-slate-300 mb-2 uppercase tracking-wider">Filtro de Número:</label>
+<select id="select-paridade" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer">
+<option value="todas">Todas</option>
+<option value="impares">Ímpares</option>
+<option value="pares">Pares</option>
+</select>
+</div>
+</div>
+<button id="btn-iniciar" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer">
+Iniciar Sessão
+</button>
+</div>
+
+<!-- TELA 3: QUIZ -->
+<div id="screen-quiz" class="hidden space-y-6">
+<div class="flex justify-between items-center text-sm font-medium text-slate-400 border-b border-slate-700 pb-4">
+<span id="quiz-progress" class="text-indigo-400 font-bold">Questão 1</span>
+<div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-600">
+<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+<span id="quiz-timer" class="font-mono text-emerald-400 font-bold tracking-wider">00:00</span>
+</div>
+<span id="quiz-header-tag" class="bg-slate-700 px-3 py-1 rounded-full text-slate-300 hidden sm:inline-block">Questão #</span>
+</div>
+
+<div id="question-container" class="space-y-6">
+<div id="question-header" class="text-amber-400 font-extrabold text-base sm:text-lg tracking-wide border-b border-slate-700/50 pb-2"></div>
+
+<div class="flex justify-end">
+<button id="btn-toggle-img" class="hidden text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 py-1.5 px-4 rounded-lg transition-all cursor-pointer">
+Ocultar Imagens
+</button>
+</div>
+
+<div id="question-text" class="text-slate-200 leading-relaxed text-base sm:text-lg text-justify bg-slate-900/30 p-4 rounded-xl whitespace-pre-line"></div>
+<div id="options-container" class="space-y-3"></div>
+</div>
+
+<div id="feedback-container" class="hidden p-5 rounded-xl text-sm space-y-2 transition-all"></div>
+
+<div class="flex flex-col sm:flex-row gap-4 mt-4" id="action-buttons-container">
+<button id="btn-pular" class="w-full sm:w-1/3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer border border-slate-600">
+Pular Questão
+</button>
+<button id="btn-action" class="w-full sm:w-2/3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer">
+Confirmar Resposta
+</button>
+</div>
+</div>
+
+<!-- TELA 4: RELATÓRIO DASHBOARD -->
+<div id="screen-report" class="hidden space-y-6">
+<div class="text-center mb-6">
+<h2 class="text-2xl font-bold text-indigo-400 mb-2">Relatório de Respostas</h2>
+<p id="report-time-spent" class="text-slate-400 mb-6 font-mono">Tempo gasto: 00:00</p>
+
+<div id="report-metadata" class="max-w-2xl mx-auto bg-slate-800/80 p-5 rounded-xl border border-slate-600 mb-8 text-left shadow-inner">
+<!-- Preenchido via JavaScript -->
+</div>
+
+<div class="flex justify-center gap-4 mb-8">
+<div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl text-center shadow-inner w-48">
+<p class="text-4xl font-black text-indigo-400" id="report-total">0</p>
+<p class="text-xs text-slate-400 mt-2 uppercase font-medium tracking-wider">Respondidas</p>
+</div>
+</div>
+<p class="text-sm text-amber-300">Abaixo estão as suas marcações para conferência manual com o seu gabarito.</p>
+</div>
+
+<div class="space-y-4 max-h-[32rem] overflow-y-auto pr-2" id="report-list"></div>
+
+<div class="flex flex-col sm:flex-row gap-4 mt-6">
+<button id="btn-export-txt" class="w-full sm:w-1/2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+Exportar em .TXT
+</button>
+<button id="btn-reiniciar" class="w-full sm:w-1/2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer">
+Finalizar e Voltar
+</button>
+</div>
+</div>
+
+<!-- TELA 5: HISTÓRICO -->
+<div id="screen-history" class="hidden space-y-6">
+<h2 class="text-2xl font-bold text-indigo-400 text-center mb-6">Histórico de Sessões</h2>
+<div id="history-list" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
+<button id="btn-fechar-historico" class="w-full mt-6 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg cursor-pointer">
+Voltar ao Menu
+</button>
+</div>
+
+</div>
+
+<!-- Container de Toasts (Notificações) -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+
+<script>
+var pdfDocumento = null;
+var pdfNomeArquivo = "";
+var metadadosTrechos = [];
+var questoesGlobais = [];
+var questoesSessao = [];
+var indiceQuestao = 0;
+var respostasSessao = [];
+var cronometroIntervalo = null;
+var segundosDecorridos = 0;
+
+// --- SISTEMA DE TOAST NOTIFICATIONS ---
+function mostrarToast(mensagem, tipo = 'erro') {
+const container = document.getElementById('toast-container');
+const toast = document.createElement('div');
+
+const bgCor = tipo === 'erro' ? 'bg-red-600' : 'bg-emerald-600';
+toast.className = ${bgCor} text-white px-5 py-3 rounded-lg shadow-2xl font-bold text-sm transform translate-y-full opacity-0 transition-all duration-300`;
+toast.innerText = mensagem;
+
+container.appendChild(toast);
+
+setTimeout(() => { toast.classList.remove('translate-y-full', 'opacity-0'); }, 10);
+setTimeout(() => {
+toast.classList.add('translate-y-full', 'opacity-0');
+setTimeout(() => toast.remove(), 300);
+}, 4000);
+}
+
+// --- SISTEMA DE AUTO-SAVE ---
+function salvarEstadoSessao() {
+const estado = {
+pdfNomeArquivo,
+questoesSessao,
+indiceQuestao,
+respostasSessao,
+segundosDecorridos
+};
+localStorage.setItem('simulados_sessao_ativa', JSON.stringify(estado));
+}
+
+function limparEstadoSessao() {
+localStorage.removeItem('simulados_sessao_ativa');
+}
+
+function verificarSessaoPendente() {
+const sessao = localStorage.getItem('simulados_sessao_ativa');
+if (sessao) {
+document.getElementById('container-resume').classList.remove('hidden');
+} else {
+document.getElementById('container-resume').classList.add('hidden');
+}
+}
+
+function restaurarSessao() {
+try {
+const estado = JSON.parse(localStorage.getItem('simulados_sessao_ativa'));
+if (estado && estado.questoesSessao.length > 0) {
+pdfNomeArquivo = estado.pdfNomeArquivo;
+questoesSessao = estado.questoesSessao;
+indiceQuestao = estado.indiceQuestao;
+respostasSessao = estado.respostasSessao;
+segundosDecorridos = estado.segundosDecorridos;
+
+mudarTela('screen-quiz');
+iniciarCronometro(true); // true = não zera os segundos
+renderizarQuestao();
+mostrarToast("Sessão recuperada com sucesso!", 'sucesso');
+}
+} catch (e) {
+mostrarToast("Erro ao tentar recuperar a sessão.");
+limparEstadoSessao();
+}
+}
+// -----------------------------
+
+function mudarTela(telaAtiva) {
+const telas = ['screen-upload', 'screen-pages', 'screen-config', 'screen-quiz', 'screen-report', 'screen-history'];
+telas.forEach(t => document.getElementById(t).classList.add('hidden'));
+document.getElementById(telaAtiva).classList.remove('hidden');
+
+const btnHist = document.getElementById('btn-show-history');
+if (telaAtiva === 'screen-upload') {
+btnHist.classList.remove('hidden');
+verificarSessaoPendente();
+} else {
+btnHist.classList.add('hidden');
+}
+}
+
+async function log(msg) {
+console.log(msg);
+var box = document.getElementById('debug-box');
+if (box) {
+box.classList.remove('hidden');
+var logContainer = document.getElementById('debug-logs');
+logContainer.innerHTML += <p class="text-indigo-300"&gt;&gt;${msg}</p>`;
+box.scrollTop = box.scrollHeight;
+}
+await new Promise(r => setTimeout(r, 1));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+verificarSessaoPendente();
+
+document.getElementById('btn-ler-pdf').addEventListener('click', carregarPdf);
+document.getElementById('btn-add-range').addEventListener('click', () => adicionarTrecho(false));
+document.getElementById('btn-processar').addEventListener('click', extrairDosTrechos);
+document.getElementById('btn-iniciar').addEventListener('click', iniciarSimulado);
+document.getElementById('btn-pular').addEventListener('click', pularQuestao);
+document.getElementById('btn-action').addEventListener('click', submeterResposta);
+document.getElementById('btn-reiniciar').addEventListener('click', resetarInterface);
+document.getElementById('btn-show-history').addEventListener('click', () => mudarTela('screen-history'));
+document.getElementById('btn-fechar-historico').addEventListener('click', () => mudarTela('screen-upload'));
+document.getElementById('btn-resume-session').addEventListener('click', restaurarSessao);
+
+document.getElementById('btn-export-txt').addEventListener('click', exportarParaTXT);
+
+document.getElementById('btn-toggle-img').addEventListener('click', (e) => {
+const imagens = document.querySelectorAll('#question-text img');
+imagens.forEach(img => img.classList.toggle('hidden'));
+if (e.target.innerText === "Ocultar Imagens") {
+e.target.innerText = "Mostrar Imagens";
+e.target.classList.replace('bg-slate-700', 'bg-indigo-600');
+} else {
+e.target.innerText = "Ocultar Imagens";
+e.target.classList.replace('bg-indigo-600', 'bg-slate-700');
+}
+});
+});
+
+function formatarTempo(segs) {
+var m = Math.floor(segs / 60).toString().padStart(2, '0');
+var s = (segs % 60).toString().padStart(2, '0');
+return ${m}:${s};
+}
+
+function iniciarCronometro(continuar = false) {
+if (!continuar) segundosDecorridos = 0;
+document.getElementById('quiz-timer').innerText = formatarTempo(segundosDecorridos);
+clearInterval(cronometroIntervalo);
+cronometroIntervalo = setInterval(() => {
+segundosDecorridos++;
+document.getElementById('quiz-timer').innerText = formatarTempo(segundosDecorridos);
+// Auto-save do tempo a cada 5 segundos
+if (segundosDecorridos % 5 === 0) salvarEstadoSessao();
+}, 1000);
+}
+
+function pararCronometro() {
+clearInterval(cronometroIntervalo);
+}
+
+function salvarNoHistorico(total, tempoTexto) {
+try {
+let hist = JSON.parse(localStorage.getItem('simulados_historico_v3')) || [];
+hist.unshift({
+data: new Date().toLocaleDateString('pt-PT', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}),
+total: total,
+tempo: tempoTexto
+});
+if(hist.length > 50) hist.pop();
+localStorage.setItem('simulados_historico_v3', JSON.stringify(hist));
+mostrarHistoricoGerado(hist);
+} catch (e) {}
+}
+
+function mostrarHistoricoGerado(hist) {
+var list = document.getElementById('history-list');
+list.innerHTML = '';
+if(!hist || hist.length === 0) {
+list.innerHTML = '<p class="text-slate-400 text-center py-4">Nenhum registo efetuado ainda.</p>';
+return;
+}
+
+hist.forEach((h) => {
+list.innerHTML += &lt;div class="bg-slate-800 border border-slate-700 p-4 rounded-xl flex justify-between items-center shadow-sm"&gt; &lt;div&gt; &lt;p class="font-bold text-indigo-300 text-sm"&gt;${h.data}</p>
+<p class="text-xs text-slate-400 mt-1">Tempo de Sessão: ${h.tempo}&lt;/p&gt; &lt;/div&gt; &lt;div class="text-right"&gt; &lt;p class="text-lg font-black text-emerald-400"&gt;${h.total}</p>
+<p class="text-[10px] text-slate-400 uppercase tracking-widest">Respondidas</p>
+</div>
+</div>
+`;
+});
+}
+
+function adicionarTrecho(isFirst = false) {
+var container = document.getElementById('ranges-container');
+var row = document.createElement('div');
+row.className = 'range-row flex flex-col sm:flex-row items-end justify-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700';
+
+var btnRemover = isFirst ?
+<div class="w-full sm:w-1/5 pb-1"&gt;&lt;/div> :
+<div class="w-full sm:w-1/5 pb-1 flex justify-center"&gt;&lt;button onclick="this.closest('.range-row').remove()" class="bg-red-500/10 hover:bg-red-500/30 border border-red-500/30 text-red-400 py-3 px-4 rounded-lg font-bold transition-colors w-full text-sm"&gt;Remover&lt;/button&gt;&lt;/div>;
+
+var valStart = isFirst && pdfDocumento ? 1 : '';
+var valEnd = isFirst && pdfDocumento ? pdfDocumento.numPages : '';
+var maxPages = pdfDocumento ? pdfDocumento.numPages : '';
+
+row.innerHTML = &lt;div class="w-full sm:w-2/5 text-left"&gt; &lt;label class="block text-xs font-medium text-slate-300 mb-2 uppercase"&gt;Pág. Inicial:&lt;/label&gt; &lt;input type="number" min="1" max="${maxPages}" value="{maxPages}" value="{btnRemover}
+`;
+container.appendChild(row);
+}
+
+async function carregarPdf() {
+var inputElement = document.getElementById('pdf-file');
+if (!inputElement.files || inputElement.files.length === 0) return mostrarToast("Selecione um ficheiro PDF.");
+
+pdfNomeArquivo = inputElement.files[0].name;
+var btn = document.getElementById('btn-ler-pdf');
+btn.disabled = true;
+btn.classList.add('opacity-50', 'cursor-not-allowed');
+document.getElementById('debug-logs').innerHTML = '';
+
+await log("A ler ficheiro e mapear páginas...");
+try {
+var buffer = await inputElement.files[0].arrayBuffer();
+pdfDocumento = await pdfjsLib.getDocument({ data: buffer }).promise;
+await log(PDF processado! ${pdfDocumento.numPages} páginas.); document.getElementById('pdf-info').innerText =O PDF possui ${pdfDocumento.numPages} páginas.;
+document.getElementById('ranges-container').innerHTML = '';
+adicionarTrecho(true);
+mudarTela('screen-pages');
+} catch (erro) {
+await log("❌ ERRO: " + erro.message);
+mostrarToast("Erro ao ler PDF: " + erro.message);
+} finally {
+btn.disabled = false;
+btn.classList.remove('opacity-50', 'cursor-not-allowed');
+}
+}
+
+async function extrairImagensDaPagina(page) {
+var imagensEncontradas = [];
+try {
+var ops = await page.getOperatorList();
+for (var i = 0; i < ops.fnArray.length; i++) {
+if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject || ops.fnArray[i] === pdfjsLib.OPS.paintJpegXObject) {
+var objId = ops.argsArray[i][0];
+try {
+var imgObj = await page.objs.get(objId);
+if (!imgObj) continue;
+
+var w = imgObj.width || (imgObj.bitmap ? imgObj.bitmap.width : 0);
+var h = imgObj.height || (imgObj.bitmap ? imgObj.bitmap.height : 0);
+if (w < 40 || h < 40) continue;
+
+var canvas = document.createElement('canvas');
+canvas.width = w;
+canvas.height = h;
+var ctx = canvas.getContext('2d');
+
+if (imgObj.bitmap) {
+ctx.drawImage(imgObj.bitmap, 0, 0);
+imagensEncontradas.push(canvas.toDataURL('image/webp', 0.6));
+} else if (imgObj.data) {
+var imgData = ctx.createImageData(w, h);
+var dest = imgData.data;
+var src = imgObj.data;
+
+if (src.length === w * h * 4) {
+dest.set(src);
+} else if (src.length === w * h * 3) {
+for (var j = 0, k = 0; j < src.length; j += 3, k += 4) {
+dest[k] = src[j];
+dest[k + 1] = src[j + 1];
+dest[k + 2] = src[j + 2];
+dest[k + 3] = 255;
+}
+} else if (src.length === w * h) {
+for (var j = 0, k = 0; j < src.length; j++, k += 4) {
+dest[k] = src[j];
+dest[k + 1] = src[j];
+dest[k + 2] = src[j];
+dest[k + 3] = 255;
+}
+} else {
+continue;
+}
+ctx.putImageData(imgData, 0, 0);
+imagensEncontradas.push(canvas.toDataURL('image/webp', 0.6));
+}
+} catch (errInner) {
+console.warn("Aviso ao renderizar objeto de imagem", errInner);
+}
+}
+}
+} catch (errOuter) {
+console.error("Falha ao mapear objetos da página", errOuter);
+}
+return imagensEncontradas;
+}
+
+function limparTextoCompleto(texto) {
+return texto
+.replace(/</g, '<').replace(/>/g, '>')
+.replace(/_{3,}/g, ' __________ ')
+.replace(/.{4,}/g, ' .......... ')
+.replace(/([^\s])[ \t]{4,}([^\s])/g, 'latex
+1 __________ 
+
+2')
+.replace(/André\s+Castro\s+Aula\s*\d+.?Prof.?\s+André\s+Castro/gi, ' ')
+.replace(/Prof.?\s+André\s+Castro[^\n]/gi, ' ')
+.replace(/André\s+Castro[^\n]/gi, ' ')
+.replace(/TRANSPETRO\s(.?)/gi, ' ')
+.replace(/www.estrategiaconcursos.com.br[^\n]/gi, ' ')
+.replace(/[A-ZÀ-Ú]\s*\d{8,}\s*-\s*[A-ZÀ-Ú\s]+/gi, ' ')
+.replace(/\b13374533744\b[^\n]/gi, ' ')
+.replace(/\d+/g, ' ')
+.replace(/Aula\s\d+\s*-[^\n]/gi, ' ')
+.replace(/\n\s\d{1,3}\s*\n/g, '\n')
+.replace(/G\sABARITO[\s\S]$/i, ' ')
+.replace(/certi[\s-]*fi[\s-]*c/gi, 'certific')
+.replace(/criptogra[\s-]*fi[\s-]*a/gi, 'criptografia')
+.replace(/criptográ[\s-]*fi[\s-]*c/gi, 'criptográfic')
+.replace(/con[\s-]*fi[\s-]*dencial/gi, 'confidencial')
+.replace(/con[\s-]*fi[\s-]*abil/gi, 'confiabil')
+.replace(/con[\s-]*fi[\s-]*gur/gi, 'configur')
+.replace(/de[\s-]*fi[\s-]*n/gi, 'defin')
+.replace(/veri[\s-]*fi[\s-]*c/gi, 'verific')
+.replace(/identi[\s-]*fi[\s-]*c/gi, 'identific')
+.replace(/especi[\s-]*fi[\s-]*c/gi, 'especific')
+.replace(/especí[\s-]*fi[\s-]*c/gi, 'específic')
+.replace(/modi[\s-]*fi[\s-]*c/gi, 'modific')
+.replace(/signi[\s-]*fi[\s-]*c/gi, 'signific')
+.replace(/justi[\s-]*fi[\s-]*c/gi, 'justific');
+}
+
+function formatarEnunciadoEspecial(texto) {
+return texto
+.replace(/\s{2,}/g, ' ')
+.replace(/(?:^|\s+)(?:-\s*)?(I{1,3}|IV|V|VI{0,3})\s*[.-]\s*/g, '\n\n• $1 - ')
+.replace(/(?:^|\s+)(Item\s+[VF])\s*[:-]\s*/gi, '\n\n• $`1: ')
+.trim();
+}
+
+function estruturarTextoQuestao(blocoBruto) {
+var limpo = limparTextoCompleto(blocoBruto);
+var regexBanca = /^([A-ZÀ-Ú/-\s]+(?:CESPE|CEBRASPE|FUB|STF|FGV|FCC|VUNESP|CESGRANRIO|IBFC|CONSULPLAN|IDESC)[^0-9—–-]+)([-—–]\s*|\s+)([\s\S]*)`$/i;
+var match = limpo.match(regexBanca);
+
+if (match) {
+var banca = match[1].trim();
+var resto = match[3].replace(/\n+/g, ' ').trim();
+resto = formatarEnunciadoEspecial(resto);
+return { banca: banca, texto: banca + " - " + resto };
+} else {
+var resto = limpo.replace(/\n+/g, ' ').trim();
+resto = formatarEnunciadoEspecial(resto);
+return { banca: "Questão de Concurso", texto: resto };
+}
+}
+
+function injetarImagensNoHTML(texto, arrayImagensTemporario) {
+return texto.replace(/[[IMAGEM_PDF_(\d+)]]/g, function(match, id) {
+var imgIndex = parseInt(id);
+if (arrayImagensTemporario[imgIndex]) {
+return \n&lt;img src="${arrayImagensTemporario[imgIndex]}" class="max-w-full sm:max-w-xl mx-auto my-6 rounded-lg border border-slate-600 shadow-md block object-contain">\n`;
+}
+return "";
+});
+}
+
+async function extrairDosTrechos() {
+var starts = document.querySelectorAll('.page-start');
+var ends = document.querySelectorAll('.page-end');
+
+var trechosValidos = [];
+for (var i = 0; i < starts.length; i++) {
+var s = parseInt(starts[i].value);
+var e = parseInt(ends[i].value);
+if (isNaN(s) || isNaN(e) || s < 1 || e > pdfDocumento.numPages || s > e) {
+return mostrarToast(O trecho${i + 1} possui páginas inválidas.`);
+}
+trechosValidos.push({ inicio: s, fim: e });
+}
+
+var btn = document.getElementById('btn-processar');
+btn.disabled = true;
+btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+// Ativar a barra de progresso
+var divProgresso = document.getElementById('progress-container');
+var barraProgresso = document.getElementById('progress-bar');
+var textoProgresso = document.getElementById('progress-text');
+divProgresso.classList.remove('hidden');
+barraProgresso.style.width = '0%';
+textoProgresso.innerText = '0%';
+
+try {
+var listaFinal = [];
+metadadosTrechos = [];
+
+for (var idx = 0; idx < trechosValidos.length; idx++) {
+var range = trechosValidos[idx];
+await log(A extrair texto e imagens do trecho ${idx + 1} (Págs ${range.inicio} a ${range.fim})...`);
+
+var textoIntervalo = "";
+var imagensTemporarias = [];
+var totalPaginas = range.fim - range.inicio + 1;
+
+for (var p = range.inicio; p <= range.fim; p++) {
+var page = await pdfDocumento.getPage(p);
+
+var content = await page.getTextContent();
+var textLines = content.items.map(item => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+
+var imgsDaPagina = await extrairImagensDaPagina(page);
+var marcadoresImagens = "";
+imgsDaPagina.forEach((imgBase64) => {
+var currIndex = imagensTemporarias.length;
+imagensTemporarias.push(imgBase64);
+marcadoresImagens += \n[[IMAGEM_PDF_${currIndex}]]\n`;
+});
+
+textoIntervalo += marcadoresImagens + textLines + "\n";
+
+// Atualizar visual da barra de progresso
+var paginasLidas = (p - range.inicio + 1);
+var perc = Math.round((paginasLidas / totalPaginas) * 100);
+barraProgresso.style.width = ${perc}%; textoProgresso.innerText =Trecho ${idx + 1}: ${perc}%`;
+
+await new Promise(r => setTimeout(r, 5)); // Pausa ligeira para atualizar a interface
+}
+
+var textoLimpo = limparTextoCompleto(textoIntervalo);
+var posicoes = [];
+// Melhoria da Regex: Suporta "Questão 1", "Q1", "1)", "1:", "1 -"
+var regexNum = /(?:^|\n)\s*(?:Questão\s+|Q)?(\d{1,3})\s*[.-):]]\s+(?=[A-ZÀ-Ú])/gi;
+var m;
+
+while ((m = regexNum.exec(textoLimpo)) !== null) {
+posicoes.push({ numero: parseInt(m[1], 10), indice: m.index, tamanho: m[0].length });
+}
+posicoes.sort((a, b) => a.indice - b.indice);
+
+var qtdNesteTrecho = 0;
+
+for (var j = 0; j < posicoes.length; j++) {
+var atual = posicoes[j];
+var proximo = (j + 1 < posicoes.length) ? posicoes[j + 1].indice : textoLimpo.length;
+
+var blocoCompleto = textoLimpo.substring(atual.indice + atual.tamanho, proximo);
+if (!blocoCompleto || blocoCompleto.trim().length < 10) continue;
+
+// Melhoria da Regex: Suporta A), A., A-, A], A:
+var regexAlt = /(?:^|\n|\s{2,})\s*([A-Ea-e])\s*[.-)]:]\s+/g;
+var altsEncontradas = [];
+var mAlt;
+while ((mAlt = regexAlt.exec(blocoCompleto)) !== null) {
+altsEncontradas.push({ letra: mAlt[1].toUpperCase(), index: mAlt.index, length: mAlt[0].length });
+}
+
+if (altsEncontradas.length === 0) {
+var est = estruturarTextoQuestao(blocoCompleto);
+est.texto = injetarImagensNoHTML(est.texto, imagensTemporarias);
+listaFinal.push({ numeroPdf: atual.numero, banca: est.banca, enunciado: est.texto, alternativas: [{letra: 'C', texto: 'Certo'}, {letra: 'E', texto: 'Errado'}] });
+qtdNesteTrecho++;
+continue;
+}
+
+var altsValidas = [altsEncontradas[0]];
+var lastCode = altsEncontradas[0].letra.charCodeAt(0);
+var limiteBloco = blocoCompleto.length;
+
+for (var a = 1; a < altsEncontradas.length; a++) {
+var code = altsEncontradas[a].letra.charCodeAt(0);
+if (code > lastCode && code <= lastCode + 2) {
+altsValidas.push(altsEncontradas[a]);
+lastCode = code;
+} else {
+limiteBloco = altsEncontradas[a].index;
+break;
+}
+}
+
+if (altsValidas.length >= 4) {
+var enunciadoBruto = blocoCompleto.substring(0, altsValidas[0].index);
+var est = estruturarTextoQuestao(enunciadoBruto);
+est.texto = injetarImagensNoHTML(est.texto, imagensTemporarias);
+
+var altsFormatadas = [];
+for (var a = 0; a < altsValidas.length; a++) {
+var inicioAlt = altsValidas[a].index + altsValidas[a].length;
+var fimAlt = (a + 1 < altsValidas.length) ? altsValidas[a + 1].index : limiteBloco;
+
+var textoAlt = blocoCompleto.substring(inicioAlt, fimAlt)
+.replace(/\n/g, ' ')
+.replace(/\b\d{1,4}\s*[-–]\s*[A-ZÀ-Ú\s]+$/, '') .replace(/\b\d{1,4}\s*$/, '')
+.replace(/Prof.?\s+André\s+Castro.*$/gi, '') .replace(/www\.estrategiaconcursos\.com\.br.*$/gi, '')
+.replace(/[ \t]{2,}/g, ' ')
+.trim();
+
+altsFormatadas.push({ letra: altsValidas[a].letra, texto: textoAlt });
+}
+listaFinal.push({ numeroPdf: atual.numero, banca: est.banca, enunciado: est.texto, alternativas: altsFormatadas });
+qtdNesteTrecho++;
+} else {
+var est = estruturarTextoQuestao(blocoCompleto.substring(0, limiteBloco));
+est.texto = injetarImagensNoHTML(est.texto, imagensTemporarias);
+listaFinal.push({ numeroPdf: atual.numero, banca: est.banca, enunciado: est.texto, alternativas: [{letra: 'C', texto: 'Certo'}, {letra: 'E', texto: 'Errado'}] });
+qtdNesteTrecho++;
+}
+}
+
+metadadosTrechos.push({ intervalo: ``${range.inicio} a ${range.fim}, qtd: qtdNesteTrecho });
+
+// Limpar buffer de imagens do trecho atual
+imagensTemporarias = [];
+}
+
+if (listaFinal.length === 0) throw new Error("Nenhuma estrutura de questão localizada. Tente alargar o intervalo de páginas.");
+
+questoesGlobais = listaFinal;
+document.getElementById('status-extraction').innerText = ``${listaFinal.length} Questões preparadas no total!`;
+document.getElementById('num-questions').max = listaFinal.length;
+document.getElementById('num-questions').value = listaFinal.length;
+
+setTimeout(() => {
+divProgresso.classList.add('hidden');
+mudarTela('screen-config');
+mostrarToast(${listaFinal.length} questões extraídas com sucesso!`, 'sucesso');
+}, 600);
+
+} catch (erro) {
+await log("❌ ERRO: " + erro.message);
+divProgresso.classList.add('hidden');
+mostrarToast(erro.message);
+} finally {
+btn.disabled = false;
+btn.classList.remove('opacity-50', 'cursor-not-allowed');
+}
+}
+
+function iniciarSimulado() {
+var qtd = parseInt(document.getElementById('num-questions').value);
+if (isNaN(qtd) || qtd < 1) return mostrarToast("Insira um valor válido.");
+
+var modoOrdem = document.getElementById('select-ordem').value;
+var filtroParidade = document.getElementById('select-paridade').value;
+var listaTemp = [...questoesGlobais];
+
+if (filtroParidade === 'impares') listaTemp = listaTemp.filter(q => q.numeroPdf % 2 !== 0);
+if (filtroParidade === 'pares') listaTemp = listaTemp.filter(q => q.numeroPdf % 2 === 0);
+if (listaTemp.length === 0) return mostrarToast("Nenhuma questão atende aos filtros.");
+if (modoOrdem === 'aleatorio') listaTemp.sort(() => Math.random() - 0.5);
+
+questoesSessao = listaTemp.slice(0, Math.min(qtd, listaTemp.length));
+indiceQuestao = 0;
+respostasSessao = [];
+
+// Grava o save point inicial
+salvarEstadoSessao();
+
+mudarTela('screen-quiz');
+iniciarCronometro();
+renderizarQuestao();
+}
+
+function renderizarQuestao() {
+var q = questoesSessao[indiceQuestao];
+document.getElementById('quiz-progress').innerText = Questão${indiceQuestao + 1} de {q.numeroPdf}; document.getElementById('question-header').innerHTML =Questão ${q.numeroPdf};
+
+document.getElementById('question-text').innerHTML = q.enunciado;
+
+var btnToggleImg = document.getElementById('btn-toggle-img');
+if (q.enunciado.includes('<img')) {
+btnToggleImg.classList.remove('hidden');
+btnToggleImg.innerText = "Ocultar Imagens";
+btnToggleImg.classList.replace('bg-indigo-600', 'bg-slate-700');
+} else {
+btnToggleImg.classList.add('hidden');
+}
+
+var optsDiv = document.getElementById('options-container');
+optsDiv.innerHTML = '';
+q.alternativas.forEach((alt) => {
+optsDiv.innerHTML += &lt;label class="flex items-start space-x-4 bg-slate-800 p-4 rounded-xl border border-slate-600 hover:border-indigo-400 hover:bg-slate-700/50 cursor-pointer transition-all"&gt; &lt;input type="radio" name="resposta" value="${alt.letra}" class="mt-1 w-4 h-4 text-indigo-600 bg-slate-900 border-slate-600 focus:ring-indigo-500 focus:ring-2">
+<span class="text-slate-200 leading-relaxed font-medium text-justify w-full"><strong class="text-indigo-300 mr-1">{alt.texto}</span>
+</label>
+`;
+});
+
+document.getElementById('feedback-container').classList.add('hidden');
+document.getElementById('btn-pular').classList.remove('hidden');
+
+var btnAction = document.getElementById('btn-action');
+btnAction.innerText = "Confirmar Resposta";
+btnAction.onclick = submeterResposta;
+}
+
+function pularQuestao() {
+var qAtual = questoesSessao.splice(indiceQuestao, 1)[0];
+questoesSessao.push(qAtual);
+
+// Atualizar o save state com a nova ordem após pular
+salvarEstadoSessao();
+
+renderizarQuestao();
+}
+
+function submeterResposta() {
+var selecionada = document.querySelector('input[name="resposta"]:checked');
+if (!selecionada) return mostrarToast("Selecione uma alternativa antes de confirmar.");
+
+var resp = selecionada.value;
+var q = questoesSessao[indiceQuestao];
+
+respostasSessao.push({
+tituloHTML: Questão ${q.numeroPdf}, enunciadoHTML: q.enunciado, alternativasHTML: q.alternativas.map(a =&gt;<div class="mt-1 ${a.letra === resp ? 'text-indigo-400 font-bold' : 'text-slate-400'}"&gt;&lt;strong&gt;${a.letra})</strong> ${a.texto}&lt;/div>).join(''),
+numeroPdf: q.numeroPdf,
+escolhida: resp
+});
+
+// Grava o progresso
+salvarEstadoSessao();
+
+var feedback = document.getElementById('feedback-container');
+feedback.classList.remove('hidden');
+document.getElementById('btn-pular').classList.add('hidden');
+
+feedback.className = "p-5 rounded-xl text-sm bg-indigo-900/40 border border-indigo-500/50 text-indigo-100";
+feedback.innerHTML = <p class="font-bold text-base mb-1"&gt;✓ Resposta Registada!&lt;/p&gt;&lt;p class="text-indigo-200/80"&gt;Marcou: &lt;strong&gt;${resp}</strong></p>`;
+
+var btnAction = document.getElementById('btn-action');
+if (indiceQuestao < questoesSessao.length - 1) {
+btnAction.innerText = "Ir para Próxima Questão";
+btnAction.onclick = () => {
+indiceQuestao++;
+salvarEstadoSessao(); // Atualiza index
+renderizarQuestao();
+};
+} else {
+btnAction.innerText = "Finalizar Sessão";
+btnAction.onclick = finalizarSessao;
+}
+}
+
+function finalizarSessao() {
+pararCronometro();
+var tempoGastoStr = formatarTempo(segundosDecorridos);
+
+// Limpar o save state, pois a sessão foi concluída com sucesso
+limparEstadoSessao();
+
+mudarTela('screen-report');
+document.getElementById('report-time-spent').innerText = Tempo gasto:${tempoGastoStr}`;
+
+var infoDiv = document.getElementById('report-metadata');
+// Como recuperações de sessão ignoram "metadadosTrechos", geramos um resumo simplificado.
+var trechosHTML = metadadosTrechos.length > 0 ?
+metadadosTrechos.map(t => <span class="bg-indigo-900/40 text-indigo-200 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-xs font-medium"&gt;Páginas ${t.intervalo}: <strong class="text-indigo-400">${t.qtd}&lt;/strong&gt; questões&lt;/span>).join('')
+: <span class="text-slate-400 text-xs"&gt;Sessão recuperada.&lt;/span>;
+
+infoDiv.innerHTML = &lt;div class="mb-3 border-b border-slate-700/50 pb-3"&gt; &lt;span class="text-xs text-slate-400 uppercase tracking-wider font-bold"&gt;Arquivo Fonte:&lt;/span&gt; &lt;p class="text-slate-200 font-medium truncate mt-1" title="${pdfNomeArquivo}">${pdfNomeArquivo}&lt;/p&gt; &lt;/div&gt; &lt;div&gt; &lt;span class="text-xs text-slate-400 uppercase tracking-wider font-bold block mb-2"&gt;Detalhes da Sessão:&lt;/span&gt; &lt;div class="flex flex-wrap gap-2"&gt; ${trechosHTML}
+</div>
+</div>
+`;
+
+var lista = document.getElementById('report-list');
+lista.innerHTML = '';
+
+respostasSessao.forEach((r) => {
+var tmpDiv = document.createElement("DIV");
+tmpDiv.innerHTML = r.enunciadoHTML;
+var textoPuroResumo = tmpDiv.textContent || tmpDiv.innerText || "";
+var resumo = textoPuroResumo.length > 150 ? textoPuroResumo.substring(0, 150) + '...' : textoPuroResumo;
+
+lista.innerHTML += &lt;div class="p-5 rounded-xl border border-slate-600 bg-slate-800 shadow-sm mb-4 cursor-pointer hover:border-indigo-500 hover:bg-slate-750 transition-all group" onclick="this.querySelector('.resumo').classList.toggle('hidden'); this.querySelector('.completo').classList.toggle('hidden');"&gt; &lt;div class="flex justify-between items-start mb-3 border-b border-slate-700/50 pb-3"&gt; &lt;p class="font-semibold text-amber-400 text-sm group-hover:text-amber-300 transition-colors"&gt;${r.tituloHTML} <span class="text-slate-500 text-xs ml-2 font-normal italic">(clique para expandir)</span></p>
+<span class="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs uppercase tracking-wide shrink-0">Marcou: {resumo}</div>
+<div class="completo hidden mb-2 text-xs text-slate-200 text-justify space-y-4">
+<div class="leading-relaxed bg-slate-900/50 p-3 rounded-lg border border-slate-700 whitespace-pre-line">{r.alternativasHTML}
+</div>
+</div>
+</div>
+`;
+});
+
+var totalRespostas = respostasSessao.length;
+document.getElementById('report-total').innerText = totalRespostas;
+salvarNoHistorico(totalRespostas, tempoGastoStr);
+}
+
+// --- SISTEMA DE EXPORTAÇÃO DE GABARITO ---
+function exportarParaTXT() {
+if(respostasSessao.length === 0) return;
+
+let dataCriacao = new Date().toLocaleDateString('pt-PT', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+let conteudoTXT = RELATÓRIO DE SIMULADO - QUESTÕES PRO 4.0\n;
+conteudoTXT += Ficheiro: ${pdfNomeArquivo}\n; conteudoTXT +=Data: ${dataCriacao}\n;
+conteudoTXT += Total Respondido: ${respostasSessao.length}\n; conteudoTXT +=Tempo Gasto: ${formatarTempo(segundosDecorridos)}\n;
+conteudoTXT += ---------------------------------------------------\n\n;
+
+respostasSessao.forEach((r) => {
+conteudoTXT += ${r.numeroPdf} - ${r.escolhida}\n;
+});
+
+const blob = new Blob([conteudoTXT], { type: 'text/plain' });
+const link = document.createElement('a');
+link.href = URL.createObjectURL(blob);
+link.download = Gabarito_Simulado_${new Date().getTime()}.txt;
+link.click();
+URL.revokeObjectURL(link.href);
+
+mostrarToast("Gabarito exportado com sucesso!", "sucesso");
+}
+// ------------------------------------------
+
+function resetarInterface() {
+pdfDocumento = null;
+pararCronometro();
+limparEstadoSessao(); // Força a remoção de sessões antigas
+document.getElementById('pdf-file').value = '';
+document.getElementById('debug-box').classList.add('hidden');
+document.getElementById('debug-logs').innerHTML = '';
+document.getElementById('ranges-container').innerHTML = '';
+mudarTela('screen-upload');
+}
+
+mostrarHistoricoGerado(JSON.parse(localStorage.getItem('simulados_historico_v3')));
+</script>
+</body>
+</html>
